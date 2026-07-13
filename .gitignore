@@ -1,0 +1,26 @@
+# Dependency directories
+node_modules/
+
+# Local env file containing secrets
+.env
+.env.local
+.env.production
+.env.development
+
+# Local binaries directory
+bin/
+
+# Downloads temporary folder
+downloads/
+*.mp4
+*.webm
+*.mkv
+*.part
+*.ytdl
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log

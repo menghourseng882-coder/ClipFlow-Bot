@@ -1,0 +1,32 @@
+{
+  "name": "telegram-downloader-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot to download videos from YouTube, TikTok, and Facebook using Node.js, Telegraf, and yt-dlp.",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "node bot.js",
+    "build": "bash build.sh"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "telegraf": "^4.16.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "downloader",
+    "yt-dlp",
+    "telegraf",
+    "express",
+    "youtube",
+    "tiktok",
+    "facebook"
+  ],
+  "author": "",
+  "license": "ISC"
+}

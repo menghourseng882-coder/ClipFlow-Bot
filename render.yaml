@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: clipflow-downloader-bot
+    runtime: node
+    buildCommand: bash build.sh
+    startCommand: npm start
+    plan: free # Use Render's free tier
+    envVars:
+      - key: BOT_TOKEN
+        sync: false # User will set this manually in Render dashboard
+      - key: PORT
+        value: 10000 # Render's standard web port
+      - key: NODE_ENV
+        value: production
+      - key: RENDER_EXTERNAL_URL
+        fromContext: host # Automatically injects the service's external URL to keep it alive via self-ping
