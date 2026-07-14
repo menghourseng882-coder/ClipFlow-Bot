@@ -233,6 +233,251 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.get('/', (req, res) => {
+  const botUsername = bot.botInfo ? bot.botInfo.username : 'ClipFlowDLBot';
+  const telegramLink = `https://t.me/${botUsername}`;
+  
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClipFlow Downloader Bot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #8a2be2;
+      --secondary: #4a00e0;
+      --accent: #00f2fe;
+      --bg: #09090e;
+      --card-bg: rgba(255, 255, 255, 0.03);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text: #ffffff;
+      --text-muted: #a0aec0;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: radial-gradient(circle at 50% 50%, #1e1035 0%, var(--bg) 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      overflow-x: hidden;
+    }
+    
+    .container {
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 40px 30px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      position: relative;
+      overflow: hidden;
+      animation: fadeIn 0.8s ease-out;
+    }
+    
+    .container::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(138, 43, 226, 0.1) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .logo-container {
+      position: relative;
+      z-index: 1;
+      margin-bottom: 24px;
+    }
+    
+    .logo {
+      font-size: 64px;
+      line-height: 1;
+    }
+    
+    .title {
+      font-size: 32px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #ffffff 0%, #a0aec0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+      z-index: 1;
+      position: relative;
+    }
+    
+    .subtitle {
+      font-size: 16px;
+      color: var(--text-muted);
+      margin-bottom: 30px;
+      line-height: 1.6;
+      z-index: 1;
+      position: relative;
+      font-weight: 300;
+    }
+    
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      color: #10b981;
+      padding: 6px 16px;
+      border-radius: 50px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 35px;
+      z-index: 1;
+      position: relative;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background-color: #10b981;
+      border-radius: 50%;
+      margin-right: 8px;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 0.6; }
+      50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 10px #10b981; }
+      100% { transform: scale(0.9); opacity: 0.6; }
+    }
+    
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 16px 32px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      color: white;
+      text-decoration: none;
+      font-size: 18px;
+      font-weight: 600;
+      border-radius: 14px;
+      transition: all 0.3s ease;
+      box-shadow: 0 10px 25px rgba(138, 43, 226, 0.4);
+      z-index: 1;
+      position: relative;
+      border: none;
+      cursor: pointer;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 30px rgba(138, 43, 226, 0.6);
+      background: linear-gradient(135deg, #9b44ef 0%, #5710f2 100%);
+    }
+    
+    .btn:active {
+      transform: translateY(1px);
+    }
+    
+    .btn svg {
+      margin-right: 10px;
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+    
+    .features {
+      margin-top: 40px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      z-index: 1;
+      position: relative;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 30px;
+    }
+    
+    .feature-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .feature-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    
+    .feature-text {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo-container">
+      <div class="logo">📹</div>
+    </div>
+    <h1 class="title">ClipFlow Downloader</h1>
+    <p class="subtitle">A premium Telegram bot that helps you download videos from YouTube, TikTok, and Facebook directly into your chat.</p>
+    
+    <div class="status-badge">
+      <span class="status-dot"></span>
+      Online & Active
+    </div>
+    
+    <a href="\${telegramLink}" class="btn" target="_blank">
+      <svg viewBox="0 0 24 24">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.11.02-1.89 1.2-5.33 3.52-.5.35-.96.52-1.37.51-.45-.01-1.32-.26-1.97-.47-.79-.26-1.42-.4-1.36-.85.03-.23.35-.47.96-.71 3.76-1.64 6.27-2.72 7.53-3.25 3.58-1.5 4.32-1.76 4.81-1.77.11 0 .35.03.5.15.13.12.17.28.19.39.02.1.03.3.01.48z"/>
+      </svg>
+      Open Telegram Bot
+    </a>
+    
+    <div class="features">
+      <div class="feature-item">
+        <div class="feature-icon">🔴</div>
+        <div class="feature-text">YouTube</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">🎵</div>
+        <div class="feature-text">TikTok</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">🔵</div>
+        <div class="feature-text">Facebook</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`);
+});
+
 app.listen(PORT, () => {
   console.log(`Health check server running on port ${PORT}`);
 });
