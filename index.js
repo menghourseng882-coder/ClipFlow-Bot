@@ -61,6 +61,48 @@ function downloadFile(url, dest) {
   });
 }
 
+// Helper: Validate that a link is public and accessible
+function validateLink(url) {
+  return new Promise((resolve) => {
+    const parsed = getValidUrl(url);
+    if (!parsed) return resolve(false);
+    
+    const isHttps = parsed.protocol === 'https:';
+    const client = isHttps ? https : http;
+    
+    const options = {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+      },
+      timeout: 5000 // 5 seconds validation timeout
+    };
+    
+    const req = client.request(url, options, (res) => {
+      // 2xx and 3xx are valid, accessible public status codes
+      if (res.statusCode >= 200 && res.statusCode < 400) {
+        resolve(true);
+      } else {
+        resolve(false);
+      }
+    });
+    
+    req.on('error', (err) => {
+      console.warn(`[Validation Warning] Error validating link ${url}:`, err.message);
+      resolve(false);
+    });
+    
+    req.on('timeout', () => {
+      console.warn(`[Validation Warning] Timeout validating link ${url}`);
+      req.destroy();
+      resolve(false);
+    });
+    
+    req.end();
+  });
+}
+
 // Helper: Check for yt-dlp in PATH or local bin, and download it if missing
 async function ensureYtDlp() {
   if (!fs.existsSync(binPath)) {
@@ -223,7 +265,7 @@ async function ensureFfmpeg() {
   }
 }
 
-// Express server configuration for health checks
+// Express server configuration
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -234,6 +276,17 @@ if (hostUrl) {
   console.log(`[Startup] Webhook middleware registered at /webhook`);
 }
 
+// Health check endpoint /healthz as required by the prompt
+app.get('/healthz', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    uptime: process.uptime(),
+    activeDownloads,
+    queueLength: queue.length,
+  });
+});
+
+// Backward compatibility health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
@@ -492,8 +545,6 @@ app.listen(PORT, () => {
   console.log(`Health check server running on port ${PORT}`);
 });
 
-// Bot is initialized at the top of the file
-
 // Concurrency Queue implementation
 const queue = [];
 let activeDownloads = 0;
@@ -614,8 +665,8 @@ function runYtDlp(url, outputTemplate, option) {
 
     console.log(`[Spawn] ffmpeg detected: ${ffmpegExists}. Running: ${binaryToRun} ${args.slice(0, -1).join(' ')} "${url}"`);
 
-    // 5 minutes timeout to prevent hanging downloads
-    execFile(binaryToRun, args, { timeout: 300000 }, (error, stdout, stderr) => {
+    // 10 minutes timeout to prevent hanging downloads for large videos (600,000 ms)
+    execFile(binaryToRun, args, { timeout: 600000 }, (error, stdout, stderr) => {
       if (error) {
         return reject({ error, stdout, stderr });
       }
@@ -851,6 +902,18 @@ bot.on('callback_query', async (ctx) => {
   if (!statusMsg) return;
 
   const downloadTask = async () => {
+    // 1. Validate that the provided link is public and accessible before downloading
+    const isAccessible = await validateLink(url);
+    if (!isAccessible) {
+      await ctx.telegram.editMessageText(
+        ctx.chat.id,
+        statusMsg.message_id,
+        null,
+        `❌ Failed to download. Please verify the link is public, accessible, and try again.`
+      ).catch(() => {});
+      return;
+    }
+
     // Check if it is a custom slideshow photos task
     if (option === 'photos' && slideshowImages && slideshowImages.length > 0) {
       await ctx.telegram.editMessageText(
@@ -1114,7 +1177,7 @@ bot.on('callback_query', async (ctx) => {
     let filePath = null;
 
     try {
-      // Execute Download
+      // Execute Download via yt-dlp
       await runYtDlp(url, outputTemplate, option);
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       
@@ -1130,7 +1193,7 @@ bot.on('callback_query', async (ctx) => {
         throw new Error('Downloaded file not found on disk.');
       }
 
-      // If video download was requested, but we only got an audio or other non-video extension (because video stream exceeded 50MB limit and was skipped)
+      // If video download was requested, but we only got an audio or other non-video extension
       if (option !== 'mp3' && !downloadedFile.endsWith('.mp4')) {
         throw new Error('Could not download video within the 50MB limit.');
       }
@@ -1181,12 +1244,21 @@ bot.on('callback_query', async (ctx) => {
       await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
       console.log(`[Success] Media successfully sent to user.`);
     } catch (err) {
-      console.error(`[Failure] Error downloading/uploading video:`, err);
+      // Detailed error logging as requested
+      console.error(`[DOWNLOAD ERROR DETAILED]`, {
+        url,
+        platform,
+        option,
+        message: err.message,
+        stack: err.stack,
+        stdout: err.stdout,
+        stderr: err.stderr
+      });
       
       let friendlyError = '❌ Failed to download. Please verify the link is public, accessible, and try again.';
       const errStr = `${err.message || ''} ${err.stdout || ''} ${err.stderr || ''}`;
       
-      if (err.message && err.message.includes('exceeds Telegram\'s 50MB upload limit')) {
+      if (err.message && err.message.includes("exceeds Telegram's 50MB upload limit")) {
         friendlyError = `❌ ${err.message}`;
       } else if (errStr.includes('larger than max-filesize') || errStr.includes('File is larger than')) {
         friendlyError = `❌ The file exceeds Telegram's 50MB upload limit.`;
@@ -1246,8 +1318,8 @@ Promise.all([ensureYtDlp(), ensureFfmpeg()])
       console.log(`Self-pinging enabled for: ${hostUrl}`);
       setInterval(() => {
         const http = require('http');
-        http.get(`${hostUrl}/health`, (res) => {
-          console.log(`[Self-Ping] Health check status code: ${res.statusCode}`);
+        http.get(`${hostUrl}/healthz`, (res) => {
+          console.log(`[Self-Ping] Healthz check status code: ${res.statusCode}`);
         }).on('error', (err) => {
           console.error('[Self-Ping] Error:', err.message);
         });
