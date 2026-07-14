@@ -13,6 +13,9 @@ if (!process.env.BOT_TOKEN) {
   process.exit(1);
 }
 
+// Initialize Telegraf Bot
+const bot = new Telegraf(process.env.BOT_TOKEN);
+
 // Prepend local bin directory to PATH so node can find yt-dlp and ffmpeg downloaded during build/startup
 const binPath = path.join(__dirname, 'bin');
 const pathKey = Object.keys(process.env).find(k => k.toLowerCase() === 'path') || 'PATH';
@@ -90,7 +93,7 @@ async function ensureYtDlp() {
 
   // 3. Download if missing
   console.log('[Startup] yt-dlp is missing. Initiating automatic download...');
-  let downloadUrl = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
+  let downloadUrl = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux';
   if (isWindows) {
     downloadUrl = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe';
   } else if (isMac) {
@@ -223,6 +226,13 @@ async function ensureFfmpeg() {
 // Express server configuration for health checks
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Set up webhook if running on Render
+const hostUrl = process.env.RENDER_EXTERNAL_URL;
+if (hostUrl) {
+  app.use(bot.webhookCallback('/webhook'));
+  console.log(`[Startup] Webhook middleware registered at /webhook`);
+}
 
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -482,8 +492,7 @@ app.listen(PORT, () => {
   console.log(`Health check server running on port ${PORT}`);
 });
 
-// Initialize Telegraf Bot
-const bot = new Telegraf(process.env.BOT_TOKEN);
+// Bot is initialized at the top of the file
 
 // Concurrency Queue implementation
 const queue = [];
@@ -1218,9 +1227,18 @@ bot.on('callback_query', async (ctx) => {
 
 // Ensure yt-dlp and ffmpeg are present and launch Telegraf Bot
 Promise.all([ensureYtDlp(), ensureFfmpeg()])
-  .then(() => bot.launch())
   .then(() => {
-    console.log('Telegram Bot successfully running in polling mode!');
+    const hostUrl = process.env.RENDER_EXTERNAL_URL;
+    if (hostUrl) {
+      console.log(`[Startup] Setting webhook to: ${hostUrl}/webhook`);
+      return bot.telegram.setWebhook(`${hostUrl}/webhook`);
+    } else {
+      console.log('[Startup] Launching bot in polling mode...');
+      return bot.launch();
+    }
+  })
+  .then(() => {
+    console.log('Telegram Bot successfully running!');
     
     // Self-ping to keep Render container active if host environment is provided
     const hostUrl = process.env.RENDER_EXTERNAL_URL;

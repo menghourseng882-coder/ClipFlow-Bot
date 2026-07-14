@@ -10,7 +10,7 @@ mkdir -p bin
 
 # Download yt-dlp binary
 echo "Downloading latest yt-dlp..."
-curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o bin/yt-dlp
+curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o bin/yt-dlp
 chmod a+rx bin/yt-dlp
 
 # Download ffmpeg static build (official yt-dlp builds)
