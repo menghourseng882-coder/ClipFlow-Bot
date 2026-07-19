@@ -252,14 +252,9 @@ app.get('/healthz', (req, res) => {
   });
 });
 
-// Backward compatibility health check endpoint
+// Health check endpoint for UptimeRobot compatibility
 app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    uptime: process.uptime(),
-    activeDownloads,
-    queueLength: queue.length,
-  });
+  res.status(200).send('OK');
 });
 
 app.get('/', (req, res) => {
