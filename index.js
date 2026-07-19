@@ -61,45 +61,11 @@ function downloadFile(url, dest) {
   });
 }
 
-// Helper: Validate that a link is public and accessible
+// Helper: Validate that a link is public and accessible (checks structure and delegates to downloaders to avoid blocking timeouts)
 function validateLink(url) {
   return new Promise((resolve) => {
     const parsed = getValidUrl(url);
-    if (!parsed) return resolve(false);
-    
-    const isHttps = parsed.protocol === 'https:';
-    const client = isHttps ? https : http;
-    
-    const options = {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
-      },
-      timeout: 5000 // 5 seconds validation timeout
-    };
-    
-    const req = client.request(url, options, (res) => {
-      // 2xx and 3xx are valid, accessible public status codes
-      if (res.statusCode >= 200 && res.statusCode < 400) {
-        resolve(true);
-      } else {
-        resolve(false);
-      }
-    });
-    
-    req.on('error', (err) => {
-      console.warn(`[Validation Warning] Error validating link ${url}:`, err.message);
-      resolve(false);
-    });
-    
-    req.on('timeout', () => {
-      console.warn(`[Validation Warning] Timeout validating link ${url}`);
-      req.destroy();
-      resolve(false);
-    });
-    
-    req.end();
+    resolve(!!parsed);
   });
 }
 
@@ -508,18 +474,18 @@ app.get('/', (req, res) => {
       <div class="logo">📹</div>
     </div>
     <h1 class="title">ClipFlow Downloader</h1>
-    <p class="subtitle">A premium Telegram bot that helps you download videos from YouTube, TikTok, and Facebook directly into your chat.</p>
+    <p class="subtitle">ជា Telegram Bot ដ៏ពិសេសមួយ ដែលជួយសម្រួលដល់ការទាញយកវីដេអូពី YouTube, TikTok, និង Facebook មកក្នុងសារជជែកកម្សាន្តរបស់អ្នកដោយផ្ទាល់។</p>
     
     <div class="status-badge">
       <span class="status-dot"></span>
-      Online & Active
+      អនឡាញ និងសកម្ម
     </div>
     
     <a href="${telegramLink}" class="btn" target="_blank">
       <svg viewBox="0 0 24 24">
         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.11.02-1.89 1.2-5.33 3.52-.5.35-.96.52-1.37.51-.45-.01-1.32-.26-1.97-.47-.79-.26-1.42-.4-1.36-.85.03-.23.35-.47.96-.71 3.76-1.64 6.27-2.72 7.53-3.25 3.58-1.5 4.32-1.76 4.81-1.77.11 0 .35.03.5.15.13.12.17.28.19.39.02.1.03.3.01.48z"/>
       </svg>
-      Open Telegram Bot
+      បើក Telegram Bot
     </a>
     
     <div class="features">
@@ -627,6 +593,16 @@ function runYtDlp(url, outputTemplate, option) {
       '--extractor-args', 'youtube:player_client=default,-android_sdkless',
       '-o', outputTemplate,
     ];
+
+    // Check for cookies config
+    const cookiesTxtPath = path.join(__dirname, 'cookies.txt');
+    if (fs.existsSync(cookiesTxtPath)) {
+      args.push('--cookies', cookiesTxtPath);
+      console.log('[yt-dlp] Using local cookies.txt file.');
+    } else if (process.env.COOKIES_FROM_BROWSER) {
+      args.push('--cookies-from-browser', process.env.COOKIES_FROM_BROWSER);
+      console.log(`[yt-dlp] Extracting cookies from browser: ${process.env.COOKIES_FROM_BROWSER}`);
+    }
 
     if (option === 'mp3') {
       if (ffmpegExists) {
@@ -737,26 +713,26 @@ function fetchTikWmData(url) {
 // Bot Command: /start
 bot.start((ctx) => {
   ctx.reply(
-    `👋 Welcome to ClipFlow Bot!\n\n` +
-    `I can download videos from:\n` +
-    `• YouTube (including Shorts)\n` +
+    `👋 សូមស្វាគមន៍មកកាន់ ClipFlow Bot!\n\n` +
+    `ខ្ញុំអាចទាញយកវីដេអូពី៖\n` +
+    `• YouTube (រួមទាំង Shorts)\n` +
     `• TikTok\n` +
     `• Facebook\n\n` +
-    `Simply send me a video link, and I will download it and send it to you!\n\n` +
-    `⚠️ Maximum file size limit: 50MB (Telegram Bot API restriction).`
+    `គ្រាន់តែផ្ញើតំណភ្ជាប់ (Link) វីដេអូមកខ្ញុំ ខ្ញុំនឹងទាញយកវាហើយផ្ញើជូនអ្នក!\n\n` +
+    `⚠️ ទំហំឯកសារអតិបរមា៖ 50MB (កម្រិតកំណត់របស់ Telegram Bot API)។`
   );
 });
 
 // Bot Command: /help
 bot.help((ctx) => {
   ctx.reply(
-    `ℹ️ How to use ClipFlow Bot:\n\n` +
-    `1. Copy a video link from YouTube, TikTok, or Facebook.\n` +
-    `2. Paste and send the link here.\n` +
-    `3. Wait for the download to complete and enjoy!\n\n` +
-    `⚙️ Technical Limits:\n` +
-    `• Videos must be under 50MB to upload to Telegram.\n` +
-    `• Single videos only (playlists are not supported).`
+    `ℹ️ របៀបប្រើប្រាស់ ClipFlow Bot៖\n\n` +
+    `1. ចម្លងតំណភ្ជាប់ (Link) វីដេអូពី YouTube, TikTok, ឬ Facebook។\n` +
+    `2. ចម្លងមកដាក់ (Paste) ហើយផ្ញើតំណភ្ជាប់នោះមកទីនេះ។\n` +
+    `3. រង់ចាំការទាញយកបញ្ចប់ ហើយរីករាយនឹងទស្សនា!\n\n` +
+    `⚙️ កម្រិតកំណត់បច្ចេកទេស៖\n` +
+    `• វីដេអូត្រូវតែមានទំហំក្រោម 50MB ដើម្បីបង្ហោះចូល Telegram បាន។\n` +
+    `• គាំទ្រតែវីដេអូដាច់ដោយឡែកប៉ុណ្ណោះ (មិនគាំទ្រ Playlists ទេ)។`
   );
 });
 
@@ -785,7 +761,7 @@ bot.on('text', async (ctx) => {
   const match = text.match(urlPattern);
   
   if (!match) {
-    return ctx.reply('❌ Please send a valid video URL (from YouTube, TikTok, or Facebook).').catch(() => {});
+    return ctx.reply('❌ សូមផ្ញើតំណភ្ជាប់ (URL) វីដេអូដែលមានសុពលភាព (ពី YouTube, TikTok, ឬ Facebook)។').catch(() => {});
   }
   
   const url = match[1];
@@ -793,7 +769,7 @@ bot.on('text', async (ctx) => {
   const platform = detectPlatform(parsedUrl);
   
   if (!platform) {
-    return ctx.reply('❌ Unsupported platform. I only support YouTube, TikTok, and Facebook links.').catch(() => {});
+    return ctx.reply('❌ បណ្តាញសង្គមមិនគាំទ្រទេ។ ខ្ញុំគាំទ្រតែតំណភ្ជាប់ពី YouTube, TikTok, និង Facebook ប៉ុណ្ណោះ។').catch(() => {});
   }
 
   // Create unique session ID and cache URL details
@@ -845,10 +821,10 @@ bot.on('text', async (ctx) => {
     keyboard = {
       inline_keyboard: [
         [
-          { text: '📷 Download All Photos', callback_data: `dl:${shortId}:photos` }
+          { text: '📷 ទាញយករូបថតទាំងអស់', callback_data: `dl:${shortId}:photos` }
         ],
         [
-          { text: '🎵 Download MP3 Audio', callback_data: `dl:${shortId}:mp3` }
+          { text: '🎵 ទាញយកសំឡេង MP3', callback_data: `dl:${shortId}:mp3` }
         ]
       ]
     };
@@ -856,7 +832,7 @@ bot.on('text', async (ctx) => {
     keyboard = {
       inline_keyboard: [
         [
-          { text: '🎵 MP3 (Audio)', callback_data: `dl:${shortId}:mp3` }
+          { text: '🎵 MP3 (សំឡេង)', callback_data: `dl:${shortId}:mp3` }
         ],
         [
           { text: '🎬 MP4 (360p)', callback_data: `dl:${shortId}:360p` },
@@ -870,7 +846,7 @@ bot.on('text', async (ctx) => {
     };
   }
 
-  await ctx.reply('👉 Please select your desired format and quality:', {
+  await ctx.reply('👉 សូមជ្រើសរើសទម្រង់ (Format) និងគុណភាពដែលអ្នកចង់បាន៖', {
     reply_markup: keyboard,
     reply_to_message_id: ctx.message.message_id
   }).catch(() => {});
@@ -892,13 +868,13 @@ bot.on('callback_query', async (ctx) => {
 
   const storeItem = urlStore.get(shortId);
   if (!storeItem) {
-    return ctx.reply('❌ This link session has expired or the server was restarted. Please send the link again.').catch(() => {});
+    return ctx.reply('❌ សេសិននៃតំណភ្ជាប់នេះបានផុតកំណត់ ឬម៉ាស៊ីនមេត្រូវបានចាប់ផ្តើមឡើងវិញ។ សូមផ្ញើតំណភ្ជាប់ម្តងទៀត។').catch(() => {});
   }
 
   const { url, platform, messageId, slideshowAudioUrl, slideshowImages, tiktokVideoUrl, tiktokAudioUrl } = storeItem;
 
   // Send status message to inform user
-  const statusMsg = await ctx.reply('⏳ Validating link and checking queue status...').catch(() => null);
+  const statusMsg = await ctx.reply('⏳ កំពុងផ្ទៀងផ្ទាត់តំណភ្ជាប់ និងពិនិត្យមើលស្ថានភាពជួររង់ចាំ...').catch(() => null);
   if (!statusMsg) return;
 
   const downloadTask = async () => {
@@ -909,7 +885,7 @@ bot.on('callback_query', async (ctx) => {
         ctx.chat.id,
         statusMsg.message_id,
         null,
-        `❌ Failed to download. Please verify the link is public, accessible, and try again.`
+        `❌ ការទាញយកបានបរាជ័យ។ សូមប្រាកដថាតំណភ្ជាប់ជាសាធារណៈ អាចចូលមើលបាន ហើយព្យាយាមម្តងទៀត។`
       ).catch(() => {});
       return;
     }
@@ -920,7 +896,7 @@ bot.on('callback_query', async (ctx) => {
         ctx.chat.id,
         statusMsg.message_id,
         null,
-        `⏳ Downloading slideshow photos (0/${slideshowImages.length})...`
+        `⏳ កំពុងទាញយករូបថត slideshow (0/${slideshowImages.length})...`
       ).catch(() => {});
 
       const timestamp = Date.now();
@@ -935,7 +911,7 @@ bot.on('callback_query', async (ctx) => {
             ctx.chat.id,
             statusMsg.message_id,
             null,
-            `⏳ Downloading slideshow photos (${i + 1}/${slideshowImages.length})...`
+            `⏳ កំពុងទាញយករូបថត slideshow (${i + 1}/${slideshowImages.length})...`
           ).catch(() => {});
 
           const imgUrl = slideshowImages[i];
@@ -948,7 +924,7 @@ bot.on('callback_query', async (ctx) => {
           ctx.chat.id,
           statusMsg.message_id,
           null,
-          `📤 Uploading photos to Telegram...`
+          `📤 កំពុងបង្ហោះរូបថតទៅកាន់ Telegram...`
         ).catch(() => {});
 
         // Send images in chunks of 10
@@ -972,7 +948,7 @@ bot.on('callback_query', async (ctx) => {
           ctx.chat.id,
           statusMsg.message_id,
           null,
-          '❌ Failed to download slideshow photos. Please try again.'
+          '❌ ការទាញយករូបថត slideshow បានបរាជ័យ។ សូមព្យាយាមម្តងទៀត។'
         ).catch(() => {});
       } finally {
         // Cleanup temp images
@@ -987,7 +963,7 @@ bot.on('callback_query', async (ctx) => {
         ctx.chat.id,
         statusMsg.message_id,
         null,
-        `⏳ Downloading slideshow audio...`
+        `⏳ កំពុងទាញយកសំឡេង slideshow...`
       ).catch(() => {});
 
       const timestamp = Date.now();
@@ -1003,18 +979,18 @@ bot.on('callback_query', async (ctx) => {
         console.log(`[Slideshow Audio] Finished download. File size: ${fileSizeMB.toFixed(2)} MB`);
 
         if (fileSizeMB > 50) {
-          throw new Error('Slideshow audio exceeds Telegram limit of 50MB.');
+          throw new Error('សំឡេង slideshow លើសពីដែនកំណត់ 50MB របស់ Telegram ។');
         }
 
         await ctx.telegram.editMessageText(
           ctx.chat.id,
           statusMsg.message_id,
           null,
-          `📤 Uploading audio to Telegram...`
+          `📤 កំពុងបង្ហោះសំឡេងទៅកាន់ Telegram...`
         ).catch(() => {});
 
         const extraOptions = {
-          caption: `🎵 Audio track from TikTok slideshow\n\nDownloaded via @ClipFlowDLBot`,
+          caption: `🎵 បទសំឡេងពី TikTok slideshow\n\nទាញយកតាមរយៈ @ClipFlowDLBot`,
           reply_to_message_id: messageId
         };
 
@@ -1032,7 +1008,7 @@ bot.on('callback_query', async (ctx) => {
           ctx.chat.id,
           statusMsg.message_id,
           null,
-          '❌ Failed to download slideshow audio. Please try again.'
+          '❌ ការទាញយកសំឡេង slideshow បានបរាជ័យ។ សូមព្យាយាមម្តងទៀត។'
         ).catch(() => {});
       } finally {
         cleanUpFiles(downloadsDir, uniqueId);
@@ -1046,7 +1022,7 @@ bot.on('callback_query', async (ctx) => {
         ctx.chat.id,
         statusMsg.message_id,
         null,
-        `⏳ Downloading MP4 video from TikTok...`
+        `⏳ កំពុងទាញយកវីដេអូ MP4 ពី TikTok...`
       ).catch(() => {});
 
       const timestamp = Date.now();
@@ -1062,18 +1038,18 @@ bot.on('callback_query', async (ctx) => {
         console.log(`[TikTok Video] Finished download. File size: ${fileSizeMB.toFixed(2)} MB`);
 
         if (fileSizeMB > 50) {
-          throw new Error('TikTok video exceeds Telegram limit of 50MB.');
+          throw new Error('វីដេអូ TikTok លើសពីដែនកំណត់ 50MB របស់ Telegram ។');
         }
 
         await ctx.telegram.editMessageText(
           ctx.chat.id,
           statusMsg.message_id,
           null,
-          `📤 Uploading video to Telegram...`
+          `📤 កំពុងបង្ហោះវីដេអូទៅកាន់ Telegram...`
         ).catch(() => {});
 
         const extraOptions = {
-          caption: `📹 Video downloaded from TikTok\n\nDownloaded via @ClipFlowDLBot`,
+          caption: `📹 វីដេអូទាញយកពី TikTok\n\nទាញយកតាមរយៈ @ClipFlowDLBot`,
           reply_to_message_id: messageId
         };
 
@@ -1091,7 +1067,7 @@ bot.on('callback_query', async (ctx) => {
           ctx.chat.id,
           statusMsg.message_id,
           null,
-          '❌ Failed to download TikTok video. Please try again.'
+          '❌ ការទាញយកវីដេអូ TikTok បានបរាជ័យ។ សូមព្យាយាមម្តងទៀត។'
         ).catch(() => {});
       } finally {
         cleanUpFiles(downloadsDir, uniqueId);
@@ -1105,7 +1081,7 @@ bot.on('callback_query', async (ctx) => {
         ctx.chat.id,
         statusMsg.message_id,
         null,
-        `⏳ Downloading audio track from TikTok...`
+        `⏳ កំពុងទាញយកបទសំឡេងពី TikTok...`
       ).catch(() => {});
 
       const timestamp = Date.now();
@@ -1121,18 +1097,18 @@ bot.on('callback_query', async (ctx) => {
         console.log(`[TikTok Audio] Finished download. File size: ${fileSizeMB.toFixed(2)} MB`);
 
         if (fileSizeMB > 50) {
-          throw new Error('TikTok audio exceeds Telegram limit of 50MB.');
+          throw new Error('សំឡេង TikTok លើសពីដែនកំណត់ 50MB របស់ Telegram ។');
         }
 
         await ctx.telegram.editMessageText(
           ctx.chat.id,
           statusMsg.message_id,
           null,
-          `📤 Uploading audio to Telegram...`
+          `📤 កំពុងបង្ហោះសំឡេងទៅកាន់ Telegram...`
         ).catch(() => {});
 
         const extraOptions = {
-          caption: `🎵 Audio downloaded from TikTok\n\nDownloaded via @ClipFlowDLBot`,
+          caption: `🎵 សំឡេងទាញយកពី TikTok\n\nទាញយកតាមរយៈ @ClipFlowDLBot`,
           reply_to_message_id: messageId
         };
 
@@ -1150,7 +1126,7 @@ bot.on('callback_query', async (ctx) => {
           ctx.chat.id,
           statusMsg.message_id,
           null,
-          '❌ Failed to download TikTok audio. Please try again.'
+          '❌ ការទាញយកសំឡេង TikTok បានបរាជ័យ។ សូមព្យាយាមម្តងទៀត។'
         ).catch(() => {});
       } finally {
         cleanUpFiles(downloadsDir, uniqueId);
@@ -1164,7 +1140,7 @@ bot.on('callback_query', async (ctx) => {
       ctx.chat.id,
       statusMsg.message_id,
       null,
-      `⏳ Downloading ${formatName} from ${platform}...`
+      `⏳ កំពុងទាញយក ${formatName} ពី ${platform}...`
     ).catch(() => {});
 
     const timestamp = Date.now();
@@ -1190,12 +1166,12 @@ bot.on('callback_query', async (ctx) => {
       );
 
       if (!downloadedFile) {
-        throw new Error('Downloaded file not found on disk.');
+        throw new Error('មិនរកឃើញឯកសារដែលបានទាញយកនៅលើថាសរឹងឡើយ។');
       }
 
       // If video download was requested, but we only got an audio or other non-video extension
       if (option !== 'mp3' && !downloadedFile.endsWith('.mp4')) {
-        throw new Error('Could not download video within the 50MB limit.');
+        throw new Error('មិនអាចទាញយកវីដេអូក្រោមដែនកំណត់ទំហំ 50MB បានឡើយ។');
       }
 
       filePath = path.join(downloadsDir, downloadedFile);
@@ -1205,7 +1181,7 @@ bot.on('callback_query', async (ctx) => {
 
       // File Size Check
       if (fileSizeMB > 50) {
-        throw new Error(`The file is ${fileSizeMB.toFixed(1)}MB, which exceeds Telegram's 50MB upload limit.`);
+        throw new Error(`ឯកសារមានទំហំ ${fileSizeMB.toFixed(1)}MB ដែលលើសពីដែនកំណត់បង្ហោះ 50MB របស់ Telegram។`);
       }
 
       // Update status to Uploading
@@ -1213,14 +1189,14 @@ bot.on('callback_query', async (ctx) => {
         ctx.chat.id,
         statusMsg.message_id,
         null,
-        `📤 Uploading ${formatName} to Telegram...`
+        `📤 កំពុងបង្ហោះ ${formatName} ទៅកាន់ Telegram...`
       ).catch(() => {});
 
       // Send appropriate media type
       const extraOptions = {
         caption: option === 'mp3'
-          ? `🎵 Audio downloaded from ${platform}\n\nDownloaded via @ClipFlowDLBot`
-          : `📹 Video (${option}) downloaded from ${platform}\n\nDownloaded via @ClipFlowDLBot`,
+          ? `🎵 សំឡេងទាញយកពី ${platform}\n\nទាញយកតាមរយៈ @ClipFlowDLBot`
+          : `📹 វីដេអូ (${option}) ទាញយកពី ${platform}\n\nទាញយកតាមរយៈ @ClipFlowDLBot`,
         reply_to_message_id: messageId
       };
 
@@ -1255,17 +1231,23 @@ bot.on('callback_query', async (ctx) => {
         stderr: err.stderr
       });
       
-      let friendlyError = '❌ Failed to download. Please verify the link is public, accessible, and try again.';
+      let friendlyError = '❌ ការទាញយកបានបរាជ័យ។ សូមប្រាកដថាតំណភ្ជាប់ជាសាធារណៈ អាចចូលមើលបាន ហើយព្យាយាមម្តងទៀត។';
       const errStr = `${err.message || ''} ${err.stdout || ''} ${err.stderr || ''}`;
       
       if (err.message && err.message.includes("exceeds Telegram's 50MB upload limit")) {
         friendlyError = `❌ ${err.message}`;
+      } else if (err.message && err.message.includes("លើសពីដែនកំណត់បង្ហោះ 50MB របស់ Telegram")) {
+        friendlyError = `❌ ${err.message}`;
       } else if (errStr.includes('larger than max-filesize') || errStr.includes('File is larger than')) {
-        friendlyError = `❌ The file exceeds Telegram's 50MB upload limit.`;
+        friendlyError = `❌ ឯកសារនេះលើសពីដែនកំណត់បង្ហោះ 50MB របស់ Telegram។`;
       } else if (errStr.includes('confirm your age') || errStr.includes('Sign in to confirm your age')) {
-        friendlyError = `❌ Video requires age confirmation and cannot be downloaded.`;
+        friendlyError = `❌ វីដេអូនេះតម្រូវឱ្យមានការបញ្ជាក់អាយុ ហើយមិនអាចទាញយកបានទេ។`;
       } else if (errStr.includes('Private video') || errStr.includes('private')) {
-        friendlyError = `❌ This video is private or restricted.`;
+        friendlyError = `❌ វីដេអូនេះជាវីដេអូឯកជន ឬត្រូវបានដាក់កម្រិត។`;
+      } else if (errStr.includes('Sign in to confirm you') || errStr.includes('confirm you\'re not a bot') || errStr.includes('confirm youre not a bot')) {
+        friendlyError = `❌ ប្រព័ន្ធការពារយូធូប (YouTube Bot Detection) បានរារាំងការទាញយក។ សូមប្រើប្រាស់ cookies ឬកំណត់ COOKIES_FROM_BROWSER ក្នុង .env។`;
+      } else if (errStr.includes('Could not copy Chrome cookie database') || errStr.includes('cookie database') || errStr.includes('Could not copy')) {
+        friendlyError = `❌ ការចម្លង Chrome cookies បានបរាជ័យ។ សូមបិទកម្មវិធីរុករក Chrome របស់អ្នកទាំងស្រុង រួចព្យាយាមម្តងទៀត ឬប្រើប្រាស់ឯកសារ cookies.txt។`;
       }
       
       await ctx.telegram.editMessageText(
@@ -1289,7 +1271,7 @@ bot.on('callback_query', async (ctx) => {
       ctx.chat.id,
       statusMsg.message_id,
       null,
-      `⏳ Queue is full. You are at position #${queuePosition}. Waiting for download to start...`
+      `⏳ ជួររង់ចាំពេញហើយ។ អ្នកស្ថិតនៅលំដាប់ថ្នាក់លេខ #${queuePosition}។ កំពុងរង់ចាំការចាប់ផ្តើមទាញយក...`
     ).catch(() => {});
   }
 
